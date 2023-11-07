@@ -38,6 +38,7 @@ async function run() {
         const sliderCollection = client.db('Slider_DB').collection('slider')
         const usersCollection = client.db('Users_DB').collection('user')
         const productsCollection = client.db('Product_DB').collection('product')
+        const cartCollection = client.db('Cart_DB').collection('cart')
 
 
         app.get('/sliders', async (req, res) => {
@@ -53,10 +54,10 @@ async function run() {
 
         app.get('/topProducts', async (req, res) => {
             const topProducts = await productsCollection
-            .find({})
-            .sort({sold: -1})
-            .limit(6)
-            .toArray()
+                .find({})
+                .sort({ sold: -1 })
+                .limit(6)
+                .toArray()
             res.send(topProducts)
         })
 
@@ -93,13 +94,50 @@ async function run() {
 
 
 
+        // post product for cart 
+        app.post('/cartPost', async (req, res) => {
+            const data = req.body;
+            const id = data.id
+            const email = data.email
+            const query = { id, email }
+            const upQuantity = data.value
+            const find = await cartCollection.findOne(query)
+            if (find) {
+                const result = await cartCollection.updateOne(query, { $inc: { quantity: upQuantity } })
+                return res.send(result)
+            }
+            else {
+                const result = await cartCollection.insertOne(data)
+                return res.send(result)
+            }
+
+        })
+
+
+        // update a product when a user add a product
+        app.put('/cartUpdate/:id', async (req, res) => {
+            const id = req.params.id
+            const product = req.body;
+            const filter = { _id: new ObjectId(id) }
+            const options = { upsert: true }
+            const newProduct = {
+                $set: {
+                    quantity: product.NewQuantity,
+                    sold: product.TotalSold
+                }
+            }
+            const result = await productsCollection.updateOne(filter, newProduct, options)
+            res.send(result)
+        })
+
+
+
+        // update from update page
         app.put('/update/:id', async (req, res) => {
             const id = req.params.id
             const filter = { _id: new ObjectId(id) }
-            console.log(filter)
             const options = { upsert: true }
             const product = req.body
-            console.log(product)
             const newProduct = {
                 $set: {
                     name: product.name,
