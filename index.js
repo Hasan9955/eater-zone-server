@@ -60,18 +60,20 @@ async function run() {
             res.send(topProducts)
         })
 
-        app.get('/products', async (req, res) => {
-            const userEmail = req.query?.email
-            const query = { email: userEmail }
-            const result = await productsCollection.find(query).toArray()
-            res.send(result)
-        })
 
-
+        // get a single product using id
         app.get('/products/:id', async (req, res) => {
             const id = req.params.id
             const query = { _id: new ObjectId(id) }
             const result = await productsCollection.findOne(query)
+            res.send(result)
+        })
+
+        // get added products
+        app.get('/products', async (req, res) => {
+            const userEmail = req.query?.email
+            const query = { email: userEmail }
+            const result = await productsCollection.find(query).toArray()
             res.send(result)
         })
 
