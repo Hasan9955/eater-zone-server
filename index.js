@@ -35,11 +35,24 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
 
+        const sliderCollection = client.db('Slider_DB').collection('slider')
         const usersCollection = client.db('Users_DB').collection('user')
         const productsCollection = client.db('Product_DB').collection('product')
 
 
+        app.get('/sliders', async (req, res) => {
+            const result = await sliderCollection.find().toArray()
+            res.send(result)
+        })
 
+        app.get('/topProducts', async (req, res) => {
+            const topProducts = await productsCollection
+            .find({})
+            .sort({sold: -1})
+            .limit(6)
+            .toArray()
+            res.send(topProducts)
+        })
 
         app.get('/products', async (req, res) => {
             const userEmail = req.query?.email
@@ -49,9 +62,9 @@ async function run() {
         })
 
 
-        app.get('/products/:id', async (req, res) =>{
+        app.get('/products/:id', async (req, res) => {
             const id = req.params.id
-            const query = {_id: new ObjectId(id)}
+            const query = { _id: new ObjectId(id) }
             const result = await productsCollection.findOne(query)
             res.send(result)
         })
@@ -70,9 +83,37 @@ async function run() {
             res.send(result)
         })
 
+
+
+        app.put('/update/:id', async (req, res) => {
+            const id = req.params.id
+            const filter = { _id: new ObjectId(id) }
+            console.log(filter)
+            const options = { upsert: true }
+            const product = req.body
+            console.log(product)
+            const newProduct = {
+                $set: {
+                    name: product.name,
+                    email: product.email,
+                    foodName: product.foodName,
+                    category: product.category,
+                    origin: product.origin,
+                    price: product.price,
+                    quantity: product.quantity,
+                    description: product.description,
+                    photo: product.photo,
+                    sold: product.sold
+                }
+            }
+
+            const result = await productsCollection.updateOne(filter, newProduct, options)
+            res.send(result)
+        })
+
         app.delete('/delete/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id: new ObjectId(id)}
+            const query = { _id: new ObjectId(id) }
             const result = await productsCollection.deleteOne(query)
             res.send(result)
         })
