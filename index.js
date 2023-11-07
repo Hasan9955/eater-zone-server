@@ -45,6 +45,12 @@ async function run() {
             res.send(result)
         })
 
+
+        app.get('/allProducts', async (req, res) => {
+            const product = await productsCollection.find().toArray()
+            res.send(product)
+        })
+
         app.get('/topProducts', async (req, res) => {
             const topProducts = await productsCollection
             .find({})
