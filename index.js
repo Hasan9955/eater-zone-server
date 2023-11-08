@@ -1,5 +1,7 @@
 const express = require('express')
 const cors = require('cors')
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser')
 require('dotenv').config()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express()
@@ -9,8 +11,14 @@ const port = process.env.PORT || 5000;
 
 
 // middleware
-app.use(cors())
+app.use(cors({
+    origin: ['http://localhost:5173'],
+    credentials: true
+}))
 app.use(express.json())
+app.use(cookieParser())
+
+
 
 
 
@@ -30,6 +38,31 @@ const client = new MongoClient(uri, {
     }
 });
 
+
+// make a won middleware for verifying token
+const verifyToken = async (req, res, next) => {
+    const token = req?.cookies?.token;
+    if (!token) {
+        return res.status(401).send({ massage: 'unauthorized access' })
+
+    }
+    jwt.verify(token, process.env.TOKEN_SECRET, (error, decoded) => {
+        if (error) {
+            return res.status(401).send({ massage: 'unauthorized access' })
+        }
+        req.user = decoded
+        next()
+    })
+
+}
+
+
+
+
+
+
+
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -39,6 +72,31 @@ async function run() {
         const usersCollection = client.db('Users_DB').collection('user')
         const productsCollection = client.db('Product_DB').collection('product')
         const cartCollection = client.db('Cart_DB').collection('cart')
+
+
+
+
+        // create token 
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.TOKEN_SECRET, { expiresIn: '1h' })
+            res
+                .cookie('token', token, {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: 'none'
+                })
+                .send({ massage: 'token created successfully' })
+        })
+
+
+        app.post('/logout', async (req, res) => {
+            const user = req.body
+            console.log('log out user', user)
+            res.clearCookie('token', { maxAge: 0 }).send({ success: true })
+        })
+
+
 
 
         app.get('/sliders', async (req, res) => {
@@ -71,35 +129,41 @@ async function run() {
         })
 
         // get added products
-        app.get('/products', async (req, res) => {
+        app.get('/products', verifyToken, async (req, res) => {
             const userEmail = req.query?.email
+            if (userEmail !== req.user?.email) {
+                return res.status(403).send({ massage: 'forbidden' })
+            }
             const query = { email: userEmail }
             const result = await productsCollection.find(query).toArray()
             res.send(result)
         })
 
-        app.get('/productsCount', async (req, res) =>{
+        app.get('/productsCount', async (req, res) => {
             const count = await productsCollection.estimatedDocumentCount()
-            res.send({count})
+            res.send({ count })
         })
 
 
         // get pagination data
-        app.get('/pageProducts', async(req, res) => {
+        app.get('/pageProducts', async (req, res) => {
             const page = parseInt(req.query.page)
             const size = parseInt(req.query.size);
-              const result = await productsCollection.find()
-              .skip(page * size)
-              .limit(size)
-              .toArray();
-              res.send(result);
-          })
+            const result = await productsCollection.find()
+                .skip(page * size)
+                .limit(size)
+                .toArray();
+            res.send(result);
+        })
 
 
 
-        app.get('/cart', async(req, res) =>{
-            const userEmail = req.query?.email 
-            const query = {email: userEmail}
+        app.get('/cart', verifyToken, async (req, res) => {
+            const userEmail = req.query?.email
+            if (userEmail !== req?.user?.email) {
+                return res.status(403).send({ massage: 'forbidden' })
+            }
+            const query = { email: userEmail }
             const result = await cartCollection.find(query).toArray()
             res.send(result)
         })
@@ -107,11 +171,11 @@ async function run() {
 
 
         // make search functionality with food origin or food category
-        app.get('/searchProduct/:value', async(req, res) =>{
+        app.get('/searchProduct/:value', async (req, res) => {
             const body = req.params.value
-            const queryCat = {category: {$regex: new RegExp(body, 'i')}}
-            const queryOrig = {origin: {$regex: new RegExp(body, 'i')}}
-            const result = await productsCollection.find({$or: [queryCat, queryOrig]}).toArray()
+            const queryCat = { category: { $regex: new RegExp(body, 'i') } }
+            const queryOrig = { origin: { $regex: new RegExp(body, 'i') } }
+            const result = await productsCollection.find({ $or: [queryCat, queryOrig] }).toArray()
             res.send(result)
         })
 
@@ -204,9 +268,9 @@ async function run() {
             res.send(result)
         })
 
-        app.delete('/cartDelete/:id', async (req, res) =>{
+        app.delete('/cartDelete/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id: new ObjectId(id)}
+            const query = { _id: new ObjectId(id) }
             const result = await cartCollection.deleteOne(query)
             res.send(result)
         })
