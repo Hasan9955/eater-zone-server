@@ -78,6 +78,12 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/cart', async(req, res) =>{
+            const userEmail = req.query?.email 
+            const query = {email: userEmail}
+            const result = await cartCollection.find(query).toArray()
+            res.send(result)
+        })
 
         app.post('/users', async (req, res) => {
             const data = req.body
