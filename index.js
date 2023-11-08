@@ -78,12 +78,46 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/productsCount', async (req, res) =>{
+            const count = await productsCollection.estimatedDocumentCount()
+            res.send({count})
+        })
+
+
+        // get pagination data
+        app.get('/pageProducts', async(req, res) => {
+            const page = parseInt(req.query.page)
+            const size = parseInt(req.query.size);
+              const result = await productsCollection.find()
+              .skip(page * size)
+              .limit(size)
+              .toArray();
+              res.send(result);
+          })
+
+
+
         app.get('/cart', async(req, res) =>{
             const userEmail = req.query?.email 
             const query = {email: userEmail}
             const result = await cartCollection.find(query).toArray()
             res.send(result)
         })
+
+
+
+        // make search functionality with food origin or food category
+        app.get('/searchProduct/:value', async(req, res) =>{
+            const body = req.params.value
+            const queryCat = {category: {$regex: new RegExp(body, 'i')}}
+            const queryOrig = {origin: {$regex: new RegExp(body, 'i')}}
+            const result = await productsCollection.find({$or: [queryCat, queryOrig]}).toArray()
+            res.send(result)
+        })
+
+
+
+
 
         app.post('/users', async (req, res) => {
             const data = req.body
@@ -167,6 +201,13 @@ async function run() {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
             const result = await productsCollection.deleteOne(query)
+            res.send(result)
+        })
+
+        app.delete('/cartDelete/:id', async (req, res) =>{
+            const id = req.params.id;
+            const query = {_id: new ObjectId(id)}
+            const result = await cartCollection.deleteOne(query)
             res.send(result)
         })
 
